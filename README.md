@@ -10,9 +10,9 @@ npm run dev
 Open the local URL shown by Vite.
 
 ## Project modules
-- **User:** sign up / sign in, browse the food catalog, manage a cart, and view order tracking.
+- **User:** sign up / sign in, browse the food catalog, manage a cart, view order tracking, and review submitted orders and payment records.
 - **Admin:** add and remove food catalog items from the Admin Panel.
-- **Authentication and demo catalog data** are stored in the browser's Local Storage. This is for coursework demonstration only; credentials are not protected and this is not production authentication.
+- **Authentication, demo catalog data, and order/payment history** are stored in the browser's Local Storage. History is kept per account on that browser. Checkout history records a submitted UPI payment as pending verification; it does not verify or process real payments. This is for coursework demonstration only; credentials are not protected and this is not production authentication.
 
 ## Deploy the frontend to Vercel
 ### Vercel CLI
