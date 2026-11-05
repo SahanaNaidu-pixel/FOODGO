@@ -16,78 +16,93 @@ const fallbackFoods=[
 const cats=["All","Burgers","Biryani","Pizza","Pasta","Chicken","Desserts"];
 const stickers=["🍕","🍔","🍟","🥤","🍗","🌮","🍩","🍜"];
 function App(){
- const [dark,setDark]=useState(false),[page,setPage]=useState("login"),[search,setSearch]=useState(""),[cat,setCat]=useState("All");
- const [foods,setFoods]=useState(fallbackFoods);
+ const savedSession=localStorage.getItem("foodgo-session");
+ const savedFoods=localStorage.getItem("foodgo-foods");
+ const apiUrl=import.meta.env.VITE_API_URL||(import.meta.env.DEV?"http://localhost:4000":"");
+ const [dark,setDark]=useState(false),[user,setUser]=useState(()=>{try{return savedSession?JSON.parse(savedSession):null}catch{return null}}),[page,setPage]=useState(()=>savedSession?"home":"login"),[search,setSearch]=useState(""),[cat,setCat]=useState("All");
+ const [foods,setFoods]=useState(()=>{try{const stored=JSON.parse(savedFoods);return Array.isArray(stored)?stored:fallbackFoods}catch{return fallbackFoods}});
  const [cart,setCart]=useState(()=>{try{return JSON.parse(localStorage.getItem("foodgo-cart")||"[]")}catch{return[]}});
  const [toast,setToast]=useState("");
  const [active,setActive]=useState(null);
  useEffect(()=>localStorage.setItem("foodgo-cart",JSON.stringify(cart)),[cart]);
- useEffect(()=>{fetch("http://localhost:4000/api/foods").then(r=>r.ok?r.json():[]).then(data=>{if(data.length)setFoods(data)}).catch(()=>{});},[]);
+ useEffect(()=>localStorage.setItem("foodgo-foods",JSON.stringify(foods)),[foods]);
+ useEffect(()=>{if(savedFoods||!apiUrl)return;fetch(`${apiUrl}/api/foods`).then(r=>r.ok?r.json():[]).then(data=>{if(data.length)setFoods(data)}).catch(()=>{});},[]);
  const filtered=useMemo(()=>foods.filter(f=>(cat==="All"||f.cat===cat)&&(`${f.name} ${f.restaurant}`).toLowerCase().includes(search.toLowerCase())),[search,cat]);
  const add=f=>{setCart(c=>{let x=c.find(i=>i.id===f.id);return x?c.map(i=>i.id===f.id?{...i,q:i.q+1}:i):[...c,{...f,q:1}]});setToast(`${f.name} added to cart ✨`);setTimeout(()=>setToast(""),1800)};
  const total=cart.reduce((s,i)=>s+i.price*i.q,0);
- const onLogout=()=>{setPage("login");setToast("Logged out successfully");setTimeout(()=>setToast(""),1800)};
+ const notify=message=>{setToast(message);setTimeout(()=>setToast(""),1800)};
+ const onLogin=account=>{setUser(account);if(account.email)localStorage.setItem("foodgo-session",JSON.stringify(account));else localStorage.removeItem("foodgo-session");setPage("home");notify(`Welcome to FoodGo, ${account.name}`)};
+ const onLogout=()=>{setUser(null);localStorage.removeItem("foodgo-session");setPage("login");notify("Logged out successfully")};
  return <div className={dark?"app dark":"app"}>
   {page !== "login" && <nav className="nav"><div className="brand" onClick={()=>setPage("home")}><span>🍴</span> FOOD<span>GO</span></div>
-   <div className="navlinks"><button onClick={()=>setPage("home")}>Home</button><button onClick={()=>setPage("explore")}>Explore</button><button onClick={()=>setPage("tracking")}>Track Order</button><button onClick={()=>setPage("dashboard")}>Dashboard</button></div>
-   <div className="navactions"><button className="iconbtn" onClick={()=>setDark(!dark)}>{dark?<Sun/>:<Moon/>}</button><button className="cartbtn" onClick={()=>setPage("cart")}><ShoppingBag/> <b>{cart.reduce((s,i)=>s+i.q,0)}</b></button><button className="avatar" onClick={onLogout}><User size={18}/></button></div>
+   <div className="navlinks"><button onClick={()=>setPage("home")}>Home</button><button onClick={()=>setPage("explore")}>Explore</button>{user?.role!=="admin"&&<button onClick={()=>setPage("tracking")}>Track Order</button>}</div>
+   <div className="navactions"><button className="accountLink" onClick={()=>setPage("dashboard")}>{user?.role==="admin"?"Admin Panel":"My Account"}</button><button className="iconbtn" onClick={()=>setDark(!dark)}>{dark?<Sun/>:<Moon/>}</button>{user?.role!=="admin"&&<button className="cartbtn" onClick={()=>setPage("cart")}><ShoppingBag/> <b>{cart.reduce((s,i)=>s+i.q,0)}</b></button>}<button className="avatar" title={`Sign out ${user?.name||"guest"}`} onClick={onLogout}><User size={18}/></button></div>
   </nav>}
   <main>
-   {page==="login"&&<LoginScreen setPage={setPage} setToast={setToast}/>}
+   {page==="login"&&<LoginScreen onLogin={onLogin} setPage={setPage} setToast={notify}/>}
    {page==="home"&&<Home filtered={filtered} cat={cat} setCat={setCat} search={search} setSearch={setSearch} add={add} setPage={setPage} setActive={setActive}/>}
    {page==="explore"&&<Explore filtered={filtered} cat={cat} setCat={setCat} search={search} setSearch={setSearch} add={add} setActive={setActive}/>}
    {page==="cart"&&<Cart cart={cart} setCart={setCart} total={total} setPage={setPage}/>}
    {page==="checkout"&&<Checkout total={total} setPage={setPage} setToast={setToast}/>}
    {page==="tracking"&&<Tracking/>}
-   {page==="dashboard"&&<Dashboard setPage={setPage}/>}
+   {page==="dashboard"&&<Dashboard user={user} foods={foods} setFoods={setFoods} setPage={setPage} setToast={notify}/>}
   </main>
   {page !== "login" && <footer><div><b>🍴 FOODGO</b><p>Good food. Great mood. Delivered.</p></div><div><span>Explore</span><span>Careers</span><span>Support</span></div><div>© 2026 FoodGo</div></footer>}
   <AnimatePresence>{toast&&<motion.div initial={{y:80,opacity:0}} animate={{y:0,opacity:1}} exit={{y:80,opacity:0}} className="toast">✓ {toast}</motion.div>}</AnimatePresence>
   <AnimatePresence>{active&&<FoodModal food={active} close={()=>setActive(null)} add={add}/>}</AnimatePresence>
  </div>
 }
-function LoginScreen({setPage,setToast}){
- const [form,setForm]=useState({email:"",password:""});
+function LoginScreen({onLogin,setPage,setToast}){
+ const [mode,setMode]=useState("login");
+ const [form,setForm]=useState({name:"",email:"",password:"",role:"user"});
  const [showPassword,setShowPassword]=useState(false);
  const handleSubmit=e=>{
   e.preventDefault();
-  if(!form.email || !form.password){
-   setToast("Please enter both email and password");
-   setTimeout(()=>setToast(""),1800);
+  const email=form.email.trim().toLowerCase();
+  if(mode==="signup"){
+   if(!form.name.trim()||!email||form.password.length<6){setToast("Enter your name, a valid email, and a password with at least 6 characters");return}
+   const accounts=JSON.parse(localStorage.getItem("foodgo-accounts")||"[]");
+   if(accounts.some(account=>account.email===email)){setToast("An account with this email already exists");return}
+   const account={name:form.name.trim(),email,password:form.password,role:form.role};
+   localStorage.setItem("foodgo-accounts",JSON.stringify([...accounts,account]));
+   onLogin({name:account.name,email:account.email,role:account.role});
    return;
   }
-  setPage("home");
-  setToast("Welcome back to FoodGo");
-  setTimeout(()=>setToast(""),1800);
+  const accounts=JSON.parse(localStorage.getItem("foodgo-accounts")||"[]");
+  const account=accounts.find(item=>item.email===email&&item.password===form.password);
+  if(!account){setToast("Email or password is incorrect. Create an account if you are new.");return}
+  onLogin({name:account.name,email:account.email,role:account.role});
  };
+ const continueAsGuest=()=>onLogin({name:"Guest",email:"",role:"user"});
+ const switchMode=next=>{setForm({name:"",email:"",password:"",role:"user"});setMode(next)};
  return <section className="loginShell">
   <div className="loginPanel">
    <div className="loginBrand"><div className="brand mark"><span>🍴</span> FOOD<span>GO</span></div></div>
    <div className="loginIntro">
-    <span className="eyebrow loginEyebrow">WELCOME BACK</span>
-    <h1>Sign in to your foodie life.</h1>
-    <p>Track orders, save favorites, and never miss your next craving.</p>
+    <span className="eyebrow loginEyebrow">{mode==="login"?"WELCOME BACK":"JOIN FOODGO"}</span>
+    <h1>{mode==="login"?"Sign in to your foodie life.":"Create your account."}</h1>
+    <p>{mode==="login"?"Track orders, save favorites, and never miss your next craving.":"Sign up as a customer or administrator to get started."}</p>
    </div>
    <form className="loginForm" onSubmit={handleSubmit}>
+    {mode==="signup"&&<label><span>Full name</span><div className="inputWrap"><User size={16}/><input autoComplete="name" required value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Your name"/></div></label>}
     <label>
      <span>Email</span>
-     <div className="inputWrap"><User size={16}/><input type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="name@email.com" /></div>
+     <div className="inputWrap"><User size={16}/><input type="email" autoComplete="email" required value={form.email} onChange={e=>setForm({...form,email:e.target.value})} placeholder="name@email.com" /></div>
     </label>
     <label>
      <span>Password</span>
-     <div className="inputWrap"><User size={16}/><input type={showPassword?"text":"password"} value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="••••••••" /></div>
+     <div className="inputWrap"><User size={16}/><input type={showPassword?"text":"password"} autoComplete={mode==="login"?"current-password":"new-password"} minLength={mode==="signup"?6:1} required value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="At least 6 characters" /></div>
     </label>
+    {mode==="signup"&&<label><span>Account type</span><select className="roleSelect" value={form.role} onChange={e=>setForm({...form,role:e.target.value})}><option value="user">User — order food and track deliveries</option><option value="admin">Admin — manage the food catalog</option></select></label>}
     <div className="loginExtras">
      <label className="checkRow"><input type="checkbox" checked={showPassword} onChange={()=>setShowPassword(!showPassword)} /><span>Show password</span></label>
-     <button type="button" className="textLink">Forgot password?</button>
+     {mode==="login"&&<span className="loginHint">Accounts are saved in this browser</span>}
     </div>
-    <button type="submit" className="primary loginBtn">Sign in <ChevronRight size={18}/></button>
-    <button type="button" className="secondaryBtn" onClick={()=>{setPage("home");setToast("Signed in as guest");setTimeout(()=>setToast(""),1800);}}>Continue as guest</button>
+    <button type="submit" className="primary loginBtn">{mode==="login"?"Sign in":"Create account"} <ChevronRight size={18}/></button>
+    {mode==="login"&&<button type="button" className="secondaryBtn" onClick={continueAsGuest}>Continue as guest</button>}
    </form>
    <div className="loginFooter">
-    <div className="divider"><span>or continue with</span></div>
-    <div className="socials"><button type="button">Google</button><button type="button">Apple</button></div>
-    <p>New here? <button type="button" className="textLink" onClick={()=>setPage("home")}>Create an account</button></p>
+    <p>{mode==="login"?"New here?":"Already registered?"} <button type="button" className="textLink" onClick={()=>switchMode(mode==="login"?"signup":"login")}>{mode==="login"?"Create an account":"Sign in"}</button></p>
    </div>
   </div>
   <div className="loginArt">
@@ -112,6 +127,10 @@ function FoodCard({f,add,setActive}){return <motion.article whileHover={{y:-8}} 
 function Cart({cart,setCart,total,setPage}){return <section className="section cartpage"><div className="eyebrow">YOUR BAG</div><h1>Good choices. 🛍️</h1>{!cart.length?<div className="empty"><div>🛒</div><h2>Your cart is hungry.</h2><p>Add something delicious to get started.</p></div>:<div className="cartlayout"><div>{cart.map(i=><div className="cartitem" key={i.id}><img src={i.img}/><div className="ci"><h3>{i.name}</h3><p>{i.restaurant}</p><b>₹{i.price}</b></div><div className="qty"><button onClick={()=>setCart(c=>c.map(x=>x.id===i.id?{...x,q:Math.max(1,x.q-1)}:x))}><Minus/></button>{i.q}<button onClick={()=>setCart(c=>c.map(x=>x.id===i.id?{...x,q:x.q+1}:x))}><Plus/></button></div></div>)}</div><aside className="summary"><h2>Order summary</h2><div><span>Subtotal</span><b>₹{total}</b></div><div><span>Delivery</span><b>₹39</b></div><div><span>Taxes</span><b>₹{Math.round(total*.05)}</b></div><hr/><div className="grand"><span>Total</span><b>₹{total+39+Math.round(total*.05)}</b></div><button className="primary full" onClick={()=>setPage("checkout")}>Continue to checkout <ChevronRight/></button></aside></div>}</section>}
 function Checkout({total,setPage,setToast}){const [submitted,setSubmitted]=useState(false);const amount=total+39+Math.round(total*.05);const upiId=import.meta.env.VITE_UPI_ID||"your-upi-id@bank";const upiName=import.meta.env.VITE_UPI_NAME||"FoodGo";const upiUrl=`upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName)}&am=${amount}&cu=INR&tn=${encodeURIComponent("FoodGo order")}`;if(submitted)return <section className="success"><motion.div initial={{scale:0}} animate={{scale:1}} className="successicon"><CheckCircle2 size={70}/></motion.div><h1>Payment submitted! 🎉</h1><p>We will confirm your payment before preparing the order.</p><button className="primary" onClick={()=>setPage("tracking")}>Track my order <Truck/></button></section>;return <section className="section checkout"><div><div className="eyebrow">CHECKOUT</div><h1>Almost there.</h1><div className="formbox"><h2>📍 Delivery address</h2><input placeholder="Flat / House / Street"/><input placeholder="City, state, pincode"/><h2>⏱ Delivery time</h2><div className="timeopts"><button className="selected">⚡ ASAP · 25 min</button><button>🕐 Schedule for later</button></div><h2>💳 Pay with UPI</h2><div className="upiPayment"><QRCodeSVG value={upiUrl} size={180} includeMargin/><div><b>Scan to pay ₹{amount}</b><p>UPI ID: {upiId}</p><a className="primary upiLink" href={upiUrl}>Open UPI app</a><button className="paymentDone" onClick={()=>{setSubmitted(true);setToast("Payment marked for verification")}}>I have completed payment</button></div></div><small className="paymentNote">Payment is verified before your order is prepared. Never share your UPI PIN.</small></div></div><aside className="summary"><h2>Pay securely</h2><div><span>Food</span><b>₹{total}</b></div><div><span>Delivery</span><b>₹39</b></div><div><span>Taxes</span><b>₹{Math.round(total*.05)}</b></div><hr/><div className="grand"><span>Total</span><b>₹{amount}</b></div><button className="primary full" onClick={()=>{document.querySelector(".upiPayment")?.scrollIntoView({behavior:"smooth"})}}>Pay with UPI <ChevronRight/></button></aside></section>}
 function Tracking(){return <section className="section tracking"><div className="eyebrow">LIVE ORDER #FG2048</div><h1>Your food is on the move. 🛵</h1><div className="trackcard"><div className="map"><div className="route"></div><motion.div className="scooter" animate={{x:[0,170,340]}} transition={{duration:7,repeat:Infinity,ease:"linear"}}>🛵</motion.div><div className="homepin">🏠</div><div className="restaurantpin">🍔</div></div><div className="status"><div className="statushead"><div><b>Arriving in</b><strong>18 min</strong></div><span className="live">● LIVE</span></div>{[["Order confirmed","Restaurant accepted your order",CheckCircle2],["Preparing your food","Chef is working their magic",ChefHat],["Out for delivery","Alex is riding your way",Truck],["Delivered","Enjoy your meal!",PackageCheck]].map(([a,b,I],i)=><div className={i<2?"step done":"step"} key={a}><div className="stepicon"><I/></div><div><b>{a}</b><p>{b}</p></div></div>)}</div></div></section>}
-function Dashboard({setPage}){return <section className="section dash"><div className="eyebrow">CONTROL CENTER</div><h1>FoodGo Dashboard</h1><div className="rolegrid">{[["Customer","Manage orders, favorites & addresses","👤","tracking"],["Restaurant","Menu, incoming orders & revenue","👨‍🍳","dashboard"],["Delivery","Assigned drops & live status","🛵","tracking"]].map(x=><motion.div whileHover={{y:-7}} className="role" key={x[0]} onClick={()=>setPage(x[3])}><span>{x[2]}</span><h2>{x[0]}</h2><p>{x[1]}</p><button>Open workspace <ChevronRight/></button></motion.div>)}</div><div className="stats"><div><b>₹48.6K</b><span>Today revenue</span></div><div><b>1,284</b><span>Orders today</span></div><div><b>4.92</b><span>Average rating</span></div><div><b>23 min</b><span>Avg delivery</span></div></div></section>}
+function Dashboard({user,foods,setFoods,setPage,setToast}){
+ const [newFood,setNewFood]=useState({name:"",restaurant:"",price:"",cat:"Burgers",img:""});
+ if(user?.role==="admin")return <section className="section dash"><div className="eyebrow">ADMIN MODULE</div><h1>Catalog management</h1><p className="dashboardIntro">Signed in as {user.name}. Add menu items or remove items from the customer catalog.</p><form className="adminForm" onSubmit={e=>{e.preventDefault();const food={...newFood,id:Date.now(),price:Number(newFood.price),rating:4.5,img:newFood.img||fallbackFoods[0].img};setFoods(current=>[food,...current]);setNewFood({name:"",restaurant:"",price:"",cat:"Burgers",img:""});setToast("Food item added to the catalog")}}><input required aria-label="Food name" placeholder="Food name" value={newFood.name} onChange={e=>setNewFood({...newFood,name:e.target.value})}/><input required aria-label="Restaurant" placeholder="Restaurant" value={newFood.restaurant} onChange={e=>setNewFood({...newFood,restaurant:e.target.value})}/><input required aria-label="Price in rupees" type="number" min="1" placeholder="Price (₹)" value={newFood.price} onChange={e=>setNewFood({...newFood,price:e.target.value})}/><select aria-label="Category" value={newFood.cat} onChange={e=>setNewFood({...newFood,cat:e.target.value})}>{cats.filter(category=>category!=="All").map(category=><option key={category}>{category}</option>)}</select><input aria-label="Image URL" type="url" placeholder="Image URL (optional)" value={newFood.img} onChange={e=>setNewFood({...newFood,img:e.target.value})}/><button className="primary" type="submit">Add food <Plus size={18}/></button></form><div className="adminList"><h2>Menu items <span>{foods.length}</span></h2>{foods.map(food=><div className="adminItem" key={food.id}><img src={food.img} alt=""/><div><b>{food.name}</b><span>{food.restaurant} · {food.cat} · ₹{food.price}</span></div><button type="button" aria-label={`Remove ${food.name}`} onClick={()=>{setFoods(current=>current.filter(item=>item.id!==food.id));setToast("Food item removed")}}>Remove</button></div>)}</div></section>;
+ return <section className="section dash"><div className="eyebrow">USER MODULE</div><h1>Welcome, {user?.name||"Guest"}</h1><p className="dashboardIntro">Discover meals, manage your cart, and follow your delivery from one place.</p><div className="rolegrid"><motion.div whileHover={{y:-7}} className="role" onClick={()=>setPage("explore")}><span>🍽️</span><h2>Order food</h2><p>Browse restaurants and find your next favorite meal.</p><button>Explore menu <ChevronRight/></button></motion.div><motion.div whileHover={{y:-7}} className="role" onClick={()=>setPage("cart")}><span>🛍️</span><h2>Your cart</h2><p>Review your selections and proceed to checkout.</p><button>Open cart <ChevronRight/></button></motion.div><motion.div whileHover={{y:-7}} className="role" onClick={()=>setPage("tracking")}><span>🛵</span><h2>Track order</h2><p>Check delivery progress and estimated arrival.</p><button>Track delivery <ChevronRight/></button></motion.div></div></section>
+}
 function FoodModal({food,close,add}){return <div className="modalbg" onClick={close}><motion.div initial={{y:40,opacity:0}} animate={{y:0,opacity:1}} className="modal" onClick={e=>e.stopPropagation()}><button className="close" onClick={close}><X/></button><img src={food.img}/><div><div className="eyebrow">{food.restaurant}</div><h2>{food.name}</h2><p>Chef-crafted, freshly prepared and delivered with care.</p><div className="modalprice">₹{food.price}<button className="primary" onClick={()=>{add(food);close()}}>Add to bag <Plus/></button></div></div></motion.div></div>}
 createRoot(document.getElementById("root")).render(<App/>);

@@ -74,6 +74,13 @@ a { text-decoration: none; color: inherit; }
 }
 .navlinks button:hover { color: var(--accent); }
 .navactions { display: flex; align-items: center; gap: 10px; }
+.accountLink {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  font-weight: 700;
+}
+.accountLink:hover { color: var(--accent); }
 .iconbtn, .avatar {
   width: 42px;
   height: 42px;
@@ -176,6 +183,67 @@ a { text-decoration: none; color: inherit; }
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+.loginHint { color: var(--muted); font-size: 12px; }
+.roleSelect {
+  height: 54px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fffaf7;
+  color: var(--text);
+}
+.dashboardIntro { color: var(--muted); margin: 12px 0 24px; }
+.adminForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 20px;
+  margin: 24px 0;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--card);
+}
+.adminForm input, .adminForm select {
+  min-width: 0;
+  height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fffaf7;
+  color: var(--text);
+}
+.adminForm .primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.adminList {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--card);
+}
+.adminList h2 { display: flex; justify-content: space-between; margin: 0 0 10px; }
+.adminList h2 span { color: var(--muted); }
+.adminItem {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.adminItem img { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; }
+.adminItem div { flex: 1; min-width: 0; }
+.adminItem b, .adminItem span { display: block; }
+.adminItem span { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.adminItem button {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--accent);
+  font-weight: 700;
 }
 .checkRow {
   display: flex;
@@ -912,6 +980,10 @@ footer div:nth-child(2) { display: flex; gap: 24px; }
   .banner h2 { font-size: 43px; }
   .bannerEmoji { margin-top: 20px; }
   .rolegrid, .stats { grid-template-columns: 1fr; }
+  .adminForm { grid-template-columns: 1fr; padding: 14px; }
+  .adminList { padding: 14px; }
+  .adminItem { gap: 9px; }
+  .adminItem span { font-size: 11px; }
   .trust { flex-direction: column; gap: 7px; }
   .modal { grid-template-columns: 1fr; }
   .modal > img { height: 240px; min-height: 0; }
