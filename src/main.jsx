@@ -38,7 +38,8 @@ function App(){
   try{
    const saved=JSON.parse(localStorage.getItem(historyKey)||"[]");
    if(!Array.isArray(saved))throw new Error("Saved order history is not valid");
-   localStorage.setItem(historyKey,JSON.stringify([order,...saved]));
+   const orderWithCustomer={...order,customer:{name:user?.name||"Guest",email:user?.email||""}};
+   localStorage.setItem(historyKey,JSON.stringify([orderWithCustomer,...saved]));
    setCart([]);
    return true;
   }catch(error){
@@ -182,8 +183,41 @@ function OrderHistory({user,setPage}){
 function Tracking(){return <section className="section tracking"><div className="eyebrow">LIVE ORDER #FG2048</div><h1>Your food is on the move. 🛵</h1><div className="trackcard"><div className="map"><div className="route"></div><motion.div className="scooter" animate={{x:[0,170,340]}} transition={{duration:7,repeat:Infinity,ease:"linear"}}>🛵</motion.div><div className="homepin">🏠</div><div className="restaurantpin">🍔</div></div><div className="status"><div className="statushead"><div><b>Arriving in</b><strong>18 min</strong></div><span className="live">● LIVE</span></div>{[["Order confirmed","Restaurant accepted your order",CheckCircle2],["Preparing your food","Chef is working their magic",ChefHat],["Out for delivery","Alex is riding your way",Truck],["Delivered","Enjoy your meal!",PackageCheck]].map(([a,b,I],i)=><div className={i<2?"step done":"step"} key={a}><div className="stepicon"><I/></div><div><b>{a}</b><p>{b}</p></div></div>)}</div></div></section>}
 function Dashboard({user,foods,setFoods,setPage,setToast}){
  const [newFood,setNewFood]=useState({name:"",restaurant:"",price:"",cat:"Burgers",img:""});
- if(user?.role==="admin")return <section className="section dash"><div className="eyebrow">ADMIN MODULE</div><h1>Catalog management</h1><p className="dashboardIntro">Signed in as {user.name}. Add menu items or remove items from the customer catalog.</p><form className="adminForm" onSubmit={e=>{e.preventDefault();const food={...newFood,id:Date.now(),price:Number(newFood.price),rating:4.5,img:newFood.img||fallbackFoods[0].img};setFoods(current=>[food,...current]);setNewFood({name:"",restaurant:"",price:"",cat:"Burgers",img:""});setToast("Food item added to the catalog")}}><input required aria-label="Food name" placeholder="Food name" value={newFood.name} onChange={e=>setNewFood({...newFood,name:e.target.value})}/><input required aria-label="Restaurant" placeholder="Restaurant" value={newFood.restaurant} onChange={e=>setNewFood({...newFood,restaurant:e.target.value})}/><input required aria-label="Price in rupees" type="number" min="1" placeholder="Price (₹)" value={newFood.price} onChange={e=>setNewFood({...newFood,price:e.target.value})}/><select aria-label="Category" value={newFood.cat} onChange={e=>setNewFood({...newFood,cat:e.target.value})}>{cats.filter(category=>category!=="All").map(category=><option key={category}>{category}</option>)}</select><input aria-label="Image URL" type="url" placeholder="Image URL (optional)" value={newFood.img} onChange={e=>setNewFood({...newFood,img:e.target.value})}/><button className="primary" type="submit">Add food <Plus size={18}/></button></form><div className="adminList"><h2>Menu items <span>{foods.length}</span></h2>{foods.map(food=><div className="adminItem" key={food.id}><img src={food.img} alt=""/><div><b>{food.name}</b><span>{food.restaurant} · {food.cat} · ₹{food.price}</span></div><button type="button" aria-label={`Remove ${food.name}`} onClick={()=>{setFoods(current=>current.filter(item=>item.id!==food.id));setToast("Food item removed")}}>Remove</button></div>)}</div></section>;
+ const [adminTab,setAdminTab]=useState("menu");
+ const [adminHistory]=useState(()=>user?.role==="admin"?loadAdminOrderHistory():{orders:[],error:""});
+ if(user?.role==="admin")return <section className="section dash"><div className="eyebrow">ADMIN MODULE</div><h1>Admin Portal</h1><p className="dashboardIntro">Signed in as {user.name}. Manage your food catalog and review customer orders and payment submissions saved in this browser.</p><div className="adminTabs"><button className={adminTab==="menu"?"active":""} onClick={()=>setAdminTab("menu")}><UtensilsCrossed size={17}/> Menu management</button><button className={adminTab==="orders"?"active":""} onClick={()=>setAdminTab("orders")}><ReceiptText size={17}/> Orders &amp; payments <span>{adminHistory.orders.length}</span></button></div>{adminTab==="menu"?<><form className="adminForm" onSubmit={e=>{e.preventDefault();const food={...newFood,id:Date.now(),price:Number(newFood.price),rating:4.5,img:newFood.img||fallbackFoods[0].img};setFoods(current=>[food,...current]);setNewFood({name:"",restaurant:"",price:"",cat:"Burgers",img:""});setToast("Food item added to the catalog")}}><input required aria-label="Food name" placeholder="Food name" value={newFood.name} onChange={e=>setNewFood({...newFood,name:e.target.value})}/><input required aria-label="Restaurant" placeholder="Restaurant" value={newFood.restaurant} onChange={e=>setNewFood({...newFood,restaurant:e.target.value})}/><input required aria-label="Price in rupees" type="number" min="1" placeholder="Price (₹)" value={newFood.price} onChange={e=>setNewFood({...newFood,price:e.target.value})}/><select aria-label="Category" value={newFood.cat} onChange={e=>setNewFood({...newFood,cat:e.target.value})}>{cats.filter(category=>category!=="All").map(category=><option key={category}>{category}</option>)}</select><input aria-label="Image URL" type="url" placeholder="Image URL (optional)" value={newFood.img} onChange={e=>setNewFood({...newFood,img:e.target.value})}/><button className="primary" type="submit">Add food <Plus size={18}/></button></form><div className="adminList"><h2>Menu items <span>{foods.length}</span></h2>{foods.map(food=><div className="adminItem" key={food.id}><img src={food.img} alt=""/><div><b>{food.name}</b><span>{food.restaurant} · {food.cat} · ₹{food.price}</span></div><button type="button" aria-label={`Remove ${food.name}`} onClick={()=>{setFoods(current=>current.filter(item=>item.id!==food.id));setToast("Food item removed")}}>Remove</button></div>)}</div></>:<AdminOrderHistory orders={adminHistory.orders} error={adminHistory.error}/>}</section>;
  return <section className="section dash"><div className="eyebrow">USER MODULE</div><h1>Welcome, {user?.name||"Guest"}</h1><p className="dashboardIntro">Discover meals, manage your cart, and follow your delivery from one place.</p><div className="rolegrid"><motion.div whileHover={{y:-7}} className="role" onClick={()=>setPage("explore")}><span>🍽️</span><h2>Order food</h2><p>Browse restaurants and find your next favorite meal.</p><button>Explore menu <ChevronRight/></button></motion.div><motion.div whileHover={{y:-7}} className="role" onClick={()=>setPage("cart")}><span>🛍️</span><h2>Your cart</h2><p>Review your selections and proceed to checkout.</p><button>Open cart <ChevronRight/></button></motion.div><motion.div whileHover={{y:-7}} className="role" onClick={()=>setPage("tracking")}><span>🛵</span><h2>Track order</h2><p>Check delivery progress and estimated arrival.</p><button>Track delivery <ChevronRight/></button></motion.div></div></section>
+}
+function loadAdminOrderHistory(){
+ const orders=[];
+ let error="";
+ try{
+  for(let index=0;index<localStorage.length;index++){
+   const key=localStorage.key(index);
+   if(!key?.startsWith("foodgo-orders:"))continue;
+   try{
+    const saved=JSON.parse(localStorage.getItem(key)||"[]");
+    if(!Array.isArray(saved))throw new Error("Saved order history is not a list");
+    const accountEmail=key.slice("foodgo-orders:".length);
+    for(const order of saved){
+     if(!order||typeof order.id!=="string"||!Array.isArray(order.items)||!order.payment)continue;
+     orders.push({...order,customer:order.customer||{name:accountEmail==="guest"?"Guest":"Customer",email:accountEmail==="guest"?"":accountEmail}});
+    }
+   }catch(parseError){
+    console.error(`Unable to read order history from ${key}:`,parseError);
+    error="Some saved order records could not be read.";
+   }
+  }
+  orders.sort((first,second)=>new Date(second.createdAt).getTime()-new Date(first.createdAt).getTime());
+ }catch(readError){
+  console.error("Unable to load admin order history:",readError);
+  error="Unable to load order history from this browser.";
+ }
+ return{orders,error};
+}
+function AdminOrderHistory({orders,error}){
+ const formatDate=value=>new Date(value).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"});
+ return <section className="adminOrders"><h2>Customer orders &amp; payments <span>{orders.length}</span></h2><p className="adminHistoryNote">Shows order records saved in this browser. Checkout submissions are pending until independently verified.</p>{error&&<p className="historyError" role="alert">{error}</p>}{!orders.length?<div className="empty"><div>🧾</div><h2>No customer orders yet</h2><p>Orders submitted from this browser will appear here.</p></div>:<div className="adminOrderList">{orders.map(order=><article className="adminOrder" key={order.id}><div className="adminOrderHead"><div><b>{order.id}</b><span>{order.customer.name}{order.customer.email?` · ${order.customer.email}`:""}</span><span>{formatDate(order.createdAt)}</span></div><span className="historyStatus pending">{order.payment.status}</span></div><div className="historyItems">{order.items.map((item,index)=><div key={`${order.id}-${item.id}-${index}`}><span>{item.q} × {item.name}</span><b>₹{item.price*item.q}</b></div>)}</div><div className="adminPaymentRow"><span><CreditCard size={16}/> {order.payment.method} · {order.payment.status}</span><b>₹{order.total}</b></div></article>)}</div>}</section>
 }
 function FoodModal({food,close,add}){return <div className="modalbg" onClick={close}><motion.div initial={{y:40,opacity:0}} animate={{y:0,opacity:1}} className="modal" onClick={e=>e.stopPropagation()}><button className="close" onClick={close}><X/></button><img src={food.img}/><div><div className="eyebrow">{food.restaurant}</div><h2>{food.name}</h2><p>Chef-crafted, freshly prepared and delivered with care.</p><div className="modalprice">₹{food.price}<button className="primary" onClick={()=>{add(food);close()}}>Add to bag <Plus/></button></div></div></motion.div></div>}
 createRoot(document.getElementById("root")).render(<App/>);

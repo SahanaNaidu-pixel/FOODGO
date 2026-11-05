@@ -194,6 +194,76 @@ a { text-decoration: none; color: inherit; }
   color: var(--text);
 }
 .dashboardIntro { color: var(--muted); margin: 12px 0 24px; }
+.adminTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 22px 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+.adminTabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+.adminTabs button.active {
+  color: var(--accent);
+  border-color: rgba(255, 95, 58, .38);
+  background: rgba(255, 95, 58, .08);
+}
+.adminTabs button span {
+  min-width: 22px;
+  padding: 2px 6px;
+  border-radius: 99px;
+  color: #fff;
+  background: var(--accent);
+  text-align: center;
+  font-size: 12px;
+}
+.adminOrders { margin-top: 20px; }
+.adminOrders > h2 { display: flex; align-items: center; gap: 10px; }
+.adminOrders > h2 span {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 95, 58, .1);
+  color: var(--accent);
+  font: 700 14px "DM Sans", sans-serif;
+}
+.adminHistoryNote { margin: 8px 0 18px; color: var(--muted); }
+.adminOrderList { display: grid; gap: 14px; }
+.adminOrder {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+.adminOrderHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.adminOrderHead > div { display: grid; gap: 5px; }
+.adminOrderHead > div b { font: 700 18px Outfit; }
+.adminOrderHead > div span { color: var(--muted); font-size: 13px; }
+.adminPaymentRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.adminPaymentRow > span { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); }
+.adminPaymentRow > b { font: 800 20px Outfit; }
 .adminForm {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1044,6 +1114,8 @@ footer div:nth-child(2) { display: flex; gap: 24px; }
   .rolegrid, .stats { grid-template-columns: 1fr; }
   .adminForm { grid-template-columns: 1fr; padding: 14px; }
   .adminList { padding: 14px; }
+  .adminOrder { padding: 14px; }
+  .adminOrderHead { flex-direction: column; }
   .adminItem { gap: 9px; }
   .adminItem span { font-size: 11px; }
   .trust { flex-direction: column; gap: 7px; }
